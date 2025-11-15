@@ -43,11 +43,11 @@ async function handleCalendarAuth() {
 }
 
 /**
- * Pick an action based on calendar event metadata
+ * Pick an action based on calendar event metadata using Claude SDK
  * @param {Array} events - Today's calendar events
- * @returns {Object|null} - Suggested action or null if no events
+ * @returns {Promise<Object|null>} - Suggested action or null if no events
  */
-function pickActionFromEvents(events) {
+async function pickActionFromEvents(events) {
   console.log('🤔 Step 3: Analyzing events to pick an action...');
 
   if (!events || events.length === 0) {
@@ -55,31 +55,98 @@ function pickActionFromEvents(events) {
     return null;
   }
 
-  // Action selection logic based on event metadata
-  // Example: if event has "boba" or "tea" in title/description, suggest buy_boba
-  for (const event of events) {
-    const summary = (event.summary || '').toLowerCase();
-    const description = (event.description || '').toLowerCase();
-    const location = event.location || '';
+  console.log('   🤖 Calling Claude SDK to analyze events...');
 
-    // Check for boba-related keywords
-    if (summary.includes('boba') || summary.includes('tea') ||
-        description.includes('boba') || description.includes('tea')) {
-      console.log(`   ✓ Found boba-related event: "${event.summary}"`);
-      return {
-        action: 'buy_boba',
-        location: location || 'nearest boba shop',
-        drink: 'based on preference',
-        time: 'before the event',
-        eventId: event.id,
-        eventSummary: event.summary
-      };
+  const prompt = `You are an assistant that analyzes calendar events and suggests actions.
+
+Based on the following calendar events, decide what action to take.
+
+Available actions:
+- buy_boba: Purchase boba tea (can include location, drink, time, eventId)
+
+Calendar Events:
+${JSON.stringify(events, null, 2)}
+
+IMPORTANT: Respond with ONLY a valid JSON object. Do not include markdown code blocks, explanations, or any other text. Just the raw JSON.
+
+If you recommend an action, return this exact format:
+{
+  "action": "buy_boba",
+  "location": "store name",
+  "drink": "drink type",
+  "time": "when to buy",
+  "eventId": "related event id if applicable"
+}
+
+If no action is needed, return:
+{
+  "action": "none"
+}`;
+
+  try {
+    let claudeResult = null;
+
+    for await (const message of query({
+      prompt,
+      options: {
+        apiKey: process.env.ANTHROPIC_API_KEY
+      }
+    })) {
+      if (message.type === 'result' && message.subtype === 'success') {
+        claudeResult = message.result;
+      }
     }
-  }
 
-  // Default: no specific action for events
-  console.log('   ℹ️  No specific action identified for today\'s events');
-  return null;
+    console.log('   📝 Raw Claude response:', JSON.stringify(claudeResult));
+
+    if (!claudeResult) {
+      console.log('   ℹ️  No response from Claude');
+      return null;
+    }
+
+    // Parse the result
+    let action = null;
+
+    if (typeof claudeResult === 'object' && claudeResult !== null) {
+      // Already an object
+      action = claudeResult;
+    } else if (typeof claudeResult === 'string') {
+      // Try to extract JSON from string (handle markdown code blocks)
+      let jsonString = claudeResult.trim();
+
+      // Remove markdown code blocks if present
+      jsonString = jsonString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+
+      // Try to parse
+      try {
+        action = JSON.parse(jsonString);
+      } catch (e) {
+        console.log('   ⚠️  Could not parse Claude response as JSON');
+        console.log('   📄 Response was:', claudeResult);
+        return null;
+      }
+    }
+
+    if (!action || action.action === 'none') {
+      console.log('   ℹ️  No action suggested by Claude');
+      return null;
+    }
+
+    console.log('   ✓ Claude SDK returned action suggestion:', action.action);
+
+    // Add eventSummary for display purposes
+    if (action.eventId) {
+      const event = events.find(e => e.id === action.eventId);
+      if (event) {
+        action.eventSummary = event.summary;
+      }
+    }
+
+    return action;
+  } catch (error) {
+    console.error('   ❌ Error calling Claude SDK:', error.message);
+    return null;
+  }
 }
 
 /**
@@ -237,7 +304,7 @@ async function main() {
     // STEP 3: Pick an action using calendar event metadata
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n');
-    const suggestedAction = pickActionFromEvents(todayEvents);
+    const suggestedAction = await pickActionFromEvents(todayEvents);
 
     // ═══════════════════════════════════════════════════════════════════
     // STEP 4: Print events and suggest user to input y/n to the action
