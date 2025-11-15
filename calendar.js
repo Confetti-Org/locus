@@ -109,6 +109,29 @@ export async function hasValidCredentials() {
 }
 
 /**
+ * Get calendar events for today only
+ */
+export async function getTodayEvents() {
+  const calendar = await getCalendarClient();
+
+  // Calculate date range for today (start of day to end of day)
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+  const response = await calendar.events.list({
+    calendarId: 'primary',
+    timeMin: startOfDay.toISOString(),
+    timeMax: endOfDay.toISOString(),
+    maxResults: 50,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+
+  return response.data.items || [];
+}
+
+/**
  * Get calendar events for next month
  */
 export async function getNextMonthEvents() {
