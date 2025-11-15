@@ -52,6 +52,7 @@ async function showNextMonthEvents() {
     const formattedEvents = formatEvents(events);
     console.log("🗓️ RAW PEW PEW:", events);
     console.log("🗓️ FORMATTED PEW PEW:", formattedEvents);
+    return events
   } catch (error) {
     console.error('❌ Error fetching calendar events:', error.message);
     throw error;
@@ -69,9 +70,33 @@ async function main() {
     }
 
     // 2. Display next month's calendar events
-    await showNextMonthEvents();
+    const events = await showNextMonthEvents();
 
-    // 3. Configure MCP connection to Locus
+    // 3. Run custom Anthropic prompt (independent)
+    // Customize your prompt here:
+    const prompt = `Return an action from the following list: [{action: 'buy boba'}]. Use the following event metadata: ${JSON.stringify(events, null, 2)}`;
+
+    // Notes (vicky): use the following metadata to tell david what to do
+    console.log('─'.repeat(50));
+
+    let customResult = null;
+
+    for await (const message of query({
+      prompt,
+      options: {
+        apiKey: process.env.ANTHROPIC_API_KEY
+      }
+    })) {
+      if (message.type === 'result' && message.subtype === 'success') {
+        customResult = message.result;
+      }
+    }
+
+    console.log('Response:', JSON.stringify(customResult, null, 2));
+    console.log('─'.repeat(50));
+    console.log('\n✓ Custom prompt completed!\n');
+
+    // 4. Configure MCP connection to Locus
     console.log('Configuring Locus MCP connection...');
     const mcpServers = {
       'locus': {
