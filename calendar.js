@@ -178,6 +178,13 @@ export function formatEvents(events) {
       output += `   🗺️  ${event.location}\n`;
     }
 
+    // Display attendees information
+    if (event.attendees && event.attendees.length > 0) {
+      const acceptedCount = event.attendees.filter(a => a.responseStatus === 'accepted').length;
+      const totalCount = event.attendees.length;
+      output += `   👥 ${acceptedCount} joined / ${totalCount} invited\n`;
+    }
+
     if (event.description) {
       const desc = event.description.substring(0, 100);
       output += `   📝 ${desc}${event.description.length > 100 ? '...' : ''}\n`;
