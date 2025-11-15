@@ -8,13 +8,7 @@ import {
   getNextMonthEvents,
   formatEvents
 } from './calendar.js';
-import {
-  hasValidEmailCredentials,
-  getEmailAuthUrl,
-  authorizeEmailWithCode,
-  getRecentEmails,
-  formatEmails
-} from './email.js';
+import { initializeEmailIntegration } from './buy_client.js';
 
 /**
  * Handle Google Calendar authorization flow
@@ -49,38 +43,6 @@ async function handleCalendarAuth() {
 }
 
 /**
- * Handle Gmail authorization flow
- */
-async function handleEmailAuth() {
-  console.log('\n📧 Gmail Authorization Required\n');
-  console.log('To authorize this app to access your Gmail:');
-  console.log('1. Visit the following URL:');
-  console.log('\n' + getEmailAuthUrl() + '\n');
-  console.log('2. Authorize the application');
-  console.log('3. Copy the authorization code from the URL');
-  console.log('4. Paste it below\n');
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
-  return new Promise((resolve, reject) => {
-    rl.question('Enter authorization code: ', async (code) => {
-      rl.close();
-      try {
-        await authorizeEmailWithCode(code);
-        console.log('\n✓ Email authorization successful!\n');
-        resolve();
-      } catch (error) {
-        console.error('\n❌ Email authorization failed:', error.message);
-        reject(error);
-      }
-    });
-  });
-}
-
-/**
  * Display calendar events for next month
  */
 async function showNextMonthEvents() {
@@ -94,23 +56,6 @@ async function showNextMonthEvents() {
     return events
   } catch (error) {
     console.error('❌ Error fetching calendar events:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Display recent emails
- */
-async function showRecentEmails() {
-  console.log('\n📧 Fetching recent emails...\n');
-
-  try {
-    const emails = await getRecentEmails(10);
-    const formattedEmails = formatEmails(emails);
-    console.log(formattedEmails);
-    return emails;
-  } catch (error) {
-    console.error('❌ Error fetching emails:', error.message);
     throw error;
   }
 }
@@ -216,19 +161,13 @@ async function main() {
       await handleCalendarAuth();
     }
 
-    // 2. Check and handle Gmail authorization
-    const hasEmailCredentials = await hasValidEmailCredentials();
-    if (!hasEmailCredentials) {
-      await handleEmailAuth();
-    }
+    // 2. Initialize email integration (auth + fetch)
+    const emails = await initializeEmailIntegration();
 
     // 3. Display next month's calendar events
     const events = await showNextMonthEvents();
 
-    // 4. Display recent emails
-    const emails = await showRecentEmails();
-
-    // 5. Run custom Anthropic prompt (independent)
+    // 4. Run custom Anthropic prompt (independent)
     // Customize your prompt here:
     const prompt = `Based on the following calendar events, decide what action to take and return ONLY a JSON object.
 
@@ -275,7 +214,7 @@ Return format (JSON only, no extra text):
       }
     }
 
-    // 6. Configure MCP connection to Locus
+    // 5. Configure MCP connection to Locus
     console.log('Configuring Locus MCP connection...');
     const mcpServers = {
       'locus': {
@@ -312,7 +251,7 @@ Return format (JSON only, no extra text):
 
     console.log('✓ MCP configured\n');
 
-    // 7. Run a query that uses MCP tools
+    // 6. Run a query that uses MCP tools
     console.log('Running sample query...\n');
     console.log('─'.repeat(50));
 
