@@ -415,9 +415,48 @@ async function main() {
     console.log('   ✓ MCP configuration created');
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 7: Transfer funds to buying agent
+    // STEP 7: Check wallet balance
     // ═══════════════════════════════════════════════════════════════════
-    console.log('\n💸 Step 7: Transferring funds to buying agent...');
+    console.log('\n💰 Step 7: Checking wallet balance...');
+    console.log('   🔄 Querying Locus for wallet balance...\n');
+    console.log('   ' + '─'.repeat(66));
+
+    let walletBalance = null;
+    let balanceResult = null;
+
+    for await (const message of query({
+      prompt: 'Can you check my wallet balance using the available Locus tools?',
+      options
+    })) {
+      if (message.type === 'system' && message.subtype === 'init') {
+        // Check MCP connection status
+        const mcpServersInfo = message.mcp_servers;
+        const mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
+        if (mcpStatus?.status === 'connected') {
+          console.log('   ✓ Successfully connected to Locus MCP server');
+        } else {
+          console.warn('   ⚠️  MCP connection issue - check configuration');
+        }
+      } else if (message.type === 'result' && message.subtype === 'success') {
+        balanceResult = message.result;
+      }
+    }
+
+    console.log('\n   Wallet Balance Information:');
+    console.log('   ' + balanceResult);
+    console.log('   ' + '─'.repeat(66));
+    console.log('   ✓ Balance check completed');
+
+    // Check if there are enough funds
+    if (purchasePrice > 0) {
+      console.log(`\n   📊 Purchase requires: $${purchasePrice}`);
+      console.log('   💡 Please verify you have sufficient funds above');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 8: Transfer funds to buying agent
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n💸 Step 8: Transferring funds to buying agent...');
 
     if (purchasePrice > 0) {
       // Prompt user for fund transfer confirmation
