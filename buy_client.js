@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import readline from 'readline';
 import {
   hasValidEmailCredentials,
@@ -69,4 +70,32 @@ export async function initializeEmailIntegration() {
   // Display recent emails
   const emails = await showRecentEmails();
   return emails;
+}
+
+/**
+ * Main function - runs when script is executed directly
+ */
+async function main() {
+  try {
+    console.log('🤖 Buy Client - Email Integration\n');
+    console.log('─'.repeat(50));
+
+    // Initialize email integration
+    const emails = await initializeEmailIntegration();
+
+    console.log('\n─'.repeat(50));
+    console.log(`\n✓ Successfully fetched ${emails.length} emails!\n`);
+
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+    console.error('\nPlease check:');
+    console.error('  • Your .env file contains valid Google credentials');
+    console.error('  • Your network connection is active\n');
+    process.exit(1);
+  }
+}
+
+// Run main function if script is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
 }
