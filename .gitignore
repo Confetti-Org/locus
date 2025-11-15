@@ -12,6 +12,7 @@ package-lock.json
 
 # OAuth tokens
 token.json
+email-token.json
 
 # Logs
 logs/
