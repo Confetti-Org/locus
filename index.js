@@ -1,11 +1,76 @@
 import 'dotenv/config';
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import readline from 'readline';
+import {
+  hasValidCredentials,
+  getAuthUrl,
+  authorizeWithCode,
+  getNextMonthEvents,
+  formatEvents
+} from './calendar.js';
+
+/**
+ * Handle Google Calendar authorization flow
+ */
+async function handleCalendarAuth() {
+  console.log('\n📅 Google Calendar Authorization Required\n');
+  console.log('To authorize this app to access your Google Calendar:');
+  console.log('1. Visit the following URL:');
+  console.log('\n' + getAuthUrl() + '\n');
+  console.log('2. Authorize the application');
+  console.log('3. Copy the authorization code from the URL');
+  console.log('4. Paste it below\n');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve, reject) => {
+    rl.question('Enter authorization code: ', async (code) => {
+      rl.close();
+      try {
+        await authorizeWithCode(code);
+        console.log('\n✓ Authorization successful!\n');
+        resolve();
+      } catch (error) {
+        console.error('\n❌ Authorization failed:', error.message);
+        reject(error);
+      }
+    });
+  });
+}
+
+/**
+ * Display calendar events for next month
+ */
+async function showNextMonthEvents() {
+  console.log('\n📅 Fetching upcoming calendar events...\n');
+
+  try {
+    const events = await getNextMonthEvents();
+    const formattedEvents = formatEvents(events);
+    console.log(formattedEvents);
+  } catch (error) {
+    console.error('❌ Error fetching calendar events:', error.message);
+    throw error;
+  }
+}
 
 async function main() {
   try {
     console.log('🎯 Starting Locus Claude SDK application...\n');
 
-    // 1. Configure MCP connection to Locus
+    // 1. Check and handle Google Calendar authorization
+    const hasCredentials = await hasValidCredentials();
+    if (!hasCredentials) {
+      await handleCalendarAuth();
+    }
+
+    // 2. Display next month's calendar events
+    await showNextMonthEvents();
+
+    // 3. Configure MCP connection to Locus
     console.log('Configuring Locus MCP connection...');
     const mcpServers = {
       'locus': {
@@ -42,7 +107,7 @@ async function main() {
 
     console.log('✓ MCP configured\n');
 
-    // 2. Run a query that uses MCP tools
+    // 4. Run a query that uses MCP tools
     console.log('Running sample query...\n');
     console.log('─'.repeat(50));
 
