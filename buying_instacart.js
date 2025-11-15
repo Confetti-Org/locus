@@ -177,7 +177,7 @@ function test(number) {
         console.log('Extracted number:', number);
 
         // Call the test function with the extracted number
-        test(number);
+        return number, targetPage.url();
         
     }
 
