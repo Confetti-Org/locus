@@ -170,6 +170,20 @@ function promptUserConfirmation(question) {
 }
 
 /**
+ * Get price for the purchase
+ * @returns {number} - Price in dollars, or -1 if unavailable
+ */
+function getPrice() {
+  // TODO: Implement actual price fetching logic
+  // This could involve:
+  // - Calling an external API
+  // - Querying a database
+  // - Calculating based on event details
+  // - Getting real-time pricing
+  return -1;
+}
+
+/**
  * Execute action to buy_boba
  * @param {Object} params - Parameters for the boba purchase action
  * @param {string} params.location - Location/store for boba purchase
@@ -337,9 +351,33 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 5: Connect to Locus MCP to transfer funds to buying agent
+    // STEP 5: Get price for purchase
     // ═══════════════════════════════════════════════════════════════════
-    console.log('\n🔌 Step 5: Connecting to Locus MCP to transfer funds to buying agent...');
+    console.log('\n💰 Step 5: Getting price for purchase...');
+
+    let purchasePrice = getPrice();
+
+    if (purchasePrice === -1) {
+      console.log('   ⚠️  getPrice failed - unable to retrieve price');
+      console.log('   📝 Defaulting to user input for price');
+
+      const userWantsToSend = await promptUserConfirmation('   Would you like to send $10 instead?');
+
+      if (userWantsToSend) {
+        purchasePrice = 10;
+        console.log('   ✓ User confirmed - using $10 for purchase');
+      } else {
+        console.log('   ✗ User declined - skipping purchase');
+        purchasePrice = 0; // Set to 0 to skip the transfer later
+      }
+    } else {
+      console.log(`   ✓ Price retrieved successfully: $${purchasePrice}`);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: Connect to Locus MCP to transfer funds to buying agent
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n🔌 Step 6: Connecting to Locus MCP to transfer funds to buying agent...');
 
     const mcpServers = {
       'locus': {
@@ -377,47 +415,51 @@ async function main() {
     console.log('   ✓ MCP configuration created');
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 6: Transfer funds to buying agent
+    // STEP 7: Transfer funds to buying agent
     // ═══════════════════════════════════════════════════════════════════
-    console.log('\n💸 Step 6: Transferring funds to buying agent...');
+    console.log('\n💸 Step 7: Transferring funds to buying agent...');
 
-    // Prompt user for fund transfer confirmation
-    console.log('\n   The buying agent needs funds to complete the purchase.');
-    const transferConfirmed = await promptUserConfirmation('   Do you want to transfer $10 to the buying-agent wallet?');
+    if (purchasePrice > 0) {
+      // Prompt user for fund transfer confirmation
+      console.log(`\n   The buying agent needs funds to complete the purchase.`);
+      const transferConfirmed = await promptUserConfirmation(`   Do you want to transfer $${purchasePrice} to the buying-agent wallet?`);
 
-    if (transferConfirmed) {
-      console.log('\n   ✓ User confirmed - initiating fund transfer...');
-      console.log('   🔄 Connecting to Locus MCP...\n');
-      console.log('   ' + '─'.repeat(66));
+      if (transferConfirmed) {
+        console.log('\n   ✓ User confirmed - initiating fund transfer...');
+        console.log('   🔄 Connecting to Locus MCP...\n');
+        console.log('   ' + '─'.repeat(66));
 
-      let mcpStatus = null;
-      let transferResult = null;
+        let mcpStatus = null;
+        let transferResult = null;
 
-      for await (const message of query({
-        prompt: 'Can you send 1 dollars to coinbase address 0x5937b036c69773ea4a4C0D3580453A1a0b7EE51C using mcp__locus__send_to_address.',
-        options
-      })) {
-        if (message.type === 'system' && message.subtype === 'init') {
-          // Check MCP connection status
-          const mcpServersInfo = message.mcp_servers;
-          mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
-          if (mcpStatus?.status === 'connected') {
-            console.log('   ✓ Successfully connected to Locus MCP server');
-          } else {
-            console.warn('   ⚠️  MCP connection issue - check configuration');
+        for await (const message of query({
+          prompt: `Can you send ${purchasePrice} dollars to coinbase address 0x5937b036c69773ea4a4C0D3580453A1a0b7EE51C using mcp__locus__send_to_address.`,
+          options
+        })) {
+          if (message.type === 'system' && message.subtype === 'init') {
+            // Check MCP connection status
+            const mcpServersInfo = message.mcp_servers;
+            mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
+            if (mcpStatus?.status === 'connected') {
+              console.log('   ✓ Successfully connected to Locus MCP server');
+            } else {
+              console.warn('   ⚠️  MCP connection issue - check configuration');
+            }
+          } else if (message.type === 'result' && message.subtype === 'success') {
+            transferResult = message.result;
           }
-        } else if (message.type === 'result' && message.subtype === 'success') {
-          transferResult = message.result;
         }
-      }
 
-      console.log('\n   Response from Locus:');
-      console.log('   ' + transferResult);
-      console.log('   ' + '─'.repeat(66));
-      console.log('   ✓ Fund transfer completed successfully');
+        console.log('\n   Response from Locus:');
+        console.log('   ' + transferResult);
+        console.log('   ' + '─'.repeat(66));
+        console.log('   ✓ Fund transfer completed successfully');
+      } else {
+        console.log('   ✗ User declined - skipping fund transfer');
+        console.log('   ⚠️  Buying agent may not have sufficient funds to complete purchase');
+      }
     } else {
-      console.log('   ✗ User declined - skipping fund transfer');
-      console.log('   ⚠️  Buying agent may not have sufficient funds to complete purchase');
+      console.log('   ℹ️  No purchase price set - skipping fund transfer');
     }
 
     // ═══════════════════════════════════════════════════════════════════
