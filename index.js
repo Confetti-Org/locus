@@ -50,7 +50,8 @@ async function showNextMonthEvents() {
   try {
     const events = await getNextMonthEvents();
     const formattedEvents = formatEvents(events);
-    console.log(formattedEvents);
+    console.log("🗓️ RAW PEW PEW:", events);
+    console.log("🗓️ FORMATTED PEW PEW:", formattedEvents);
   } catch (error) {
     console.error('❌ Error fetching calendar events:', error.message);
     throw error;
