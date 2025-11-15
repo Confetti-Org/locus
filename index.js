@@ -5,7 +5,7 @@ import {
   hasValidCredentials,
   getAuthUrl,
   authorizeWithCode,
-  getNextMonthEvents,
+  getTodayEvents,
   formatEvents
 } from './calendar.js';
 import { initializeEmailIntegration } from './buy_client.js';
@@ -43,21 +43,144 @@ async function handleCalendarAuth() {
 }
 
 /**
- * Display calendar events for next month
+ * Pick an action based on calendar event metadata using Claude SDK
+ * @param {Array} events - Today's calendar events
+ * @returns {Promise<Object|null>} - Suggested action or null if no events
  */
-async function showNextMonthEvents() {
-  console.log('\n📅 Fetching upcoming calendar events...\n');
+async function pickActionFromEvents(events) {
+  console.log('🤔 Step 3: Analyzing events to pick an action...');
+
+  if (!events || events.length === 0) {
+    console.log('   ℹ️  No events today, no action needed');
+    return null;
+  }
+
+  console.log('   🤖 Calling Claude SDK to analyze events...');
+
+  const prompt = `You are an assistant that analyzes calendar events and suggests actions.
+
+Based on the following calendar events, decide what action to take.
+
+Available actions:
+- buy_boba: Purchase boba tea (can include location, drink, time, eventId)
+
+Calendar Events:
+${JSON.stringify(events, null, 2)}
+
+IMPORTANT: Respond with ONLY a valid JSON object. Do not include markdown code blocks, explanations, or any other text. Just the raw JSON.
+
+If you recommend an action, return this exact format:
+{
+  "action": "buy_boba",
+  "location": "store name",
+  "drink": "drink type",
+  "time": "when to buy",
+  "eventId": "related event id if applicable"
+}
+
+If no action is needed, return:
+{
+  "action": "none"
+}`;
 
   try {
-    const events = await getNextMonthEvents();
-    const formattedEvents = formatEvents(events);
-    console.log("🗓️ RAW PEW PEW:", events);
-    console.log("🗓️ FORMATTED PEW PEW:", formattedEvents);
-    return events
+    let claudeResult = null;
+
+    for await (const message of query({
+      prompt,
+      options: {
+        apiKey: process.env.ANTHROPIC_API_KEY
+      }
+    })) {
+      if (message.type === 'result' && message.subtype === 'success') {
+        claudeResult = message.result;
+      }
+    }
+
+    console.log('   📝 Raw Claude response:', JSON.stringify(claudeResult));
+
+    if (!claudeResult) {
+      console.log('   ℹ️  No response from Claude');
+      return null;
+    }
+
+    // Parse the result
+    let action = null;
+
+    if (typeof claudeResult === 'object' && claudeResult !== null) {
+      // Already an object
+      action = claudeResult;
+    } else if (typeof claudeResult === 'string') {
+      // Try to extract JSON from string (handle markdown code blocks)
+      let jsonString = claudeResult.trim();
+
+      // Remove markdown code blocks if present
+      jsonString = jsonString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+
+      // Try to parse
+      try {
+        action = JSON.parse(jsonString);
+      } catch (e) {
+        console.log('   ⚠️  Could not parse Claude response as JSON');
+        console.log('   📄 Response was:', claudeResult);
+        return null;
+      }
+    }
+
+    if (!action || action.action === 'none') {
+      console.log('   ℹ️  No action suggested by Claude');
+      return null;
+    }
+
+    console.log('   ✓ Claude SDK returned action suggestion:', action.action);
+
+    // Add eventSummary for display purposes
+    if (action.eventId) {
+      const event = events.find(e => e.id === action.eventId);
+      if (event) {
+        action.eventSummary = event.summary;
+      }
+    }
+
+    return action;
   } catch (error) {
-    console.error('❌ Error fetching calendar events:', error.message);
-    throw error;
+    console.error('   ❌ Error calling Claude SDK:', error.message);
+    return null;
   }
+}
+
+/**
+ * Prompt user for confirmation (y/n)
+ * @param {string} question - The question to ask
+ * @returns {Promise<boolean>} - true if user confirms, false otherwise
+ */
+function promptUserConfirmation(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question + ' (y/n): ', (answer) => {
+      rl.close();
+      const confirmed = answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes';
+      resolve(confirmed);
+    });
+  });
+}
+
+/**
+ * Get price for the purchase
+ * @returns {number} - Price in dollars, or -1 if unavailable
+ */
+function getPrice() {
+  // TODO: Implement actual price fetching logic
+  // This could involve:
+  // - Calling an external API
+  // - Querying a database
+  // - Calculating based on event details
+  // - Getting real-time pricing
+  return -1;
 }
 
 /**
@@ -154,68 +277,108 @@ async function executeAction(actionData, events = []) {
 async function main() {
   try {
     console.log('🎯 Starting Locus Claude SDK application...\n');
+    console.log('═'.repeat(70));
 
-    // 1. Check and handle Google Calendar authorization
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 1: Connect to Google Calendar
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n📅 Step 1: Connecting to Google Calendar...');
     const hasCredentials = await hasValidCredentials();
     if (!hasCredentials) {
+      console.log('   ⚠️  No credentials found, starting auth flow...');
       await handleCalendarAuth();
+      console.log('   ✓ Successfully connected to Google Calendar');
+    } else {
+      console.log('   ✓ Already connected to Google Calendar');
     }
 
-    // 2. Initialize email integration (auth + fetch)
-    const emails = await initializeEmailIntegration();
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 2: Query events that are today
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n🗓️  Step 2: Querying today\'s calendar events...');
+    const todayEvents = await getTodayEvents();
+    console.log(`   ✓ Found ${todayEvents.length} event(s) today`);
 
-    // 3. Display next month's calendar events
-    const events = await showNextMonthEvents();
+    if (todayEvents.length > 0) {
+      console.log('\n   Today\'s Events:');
+      todayEvents.forEach((event, index) => {
+        const start = event.start.dateTime || event.start.date;
+        const startDate = new Date(start);
+        const timeStr = event.start.dateTime
+          ? startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+          : 'All day';
+        console.log(`   ${index + 1}. ${event.summary || 'Untitled'} (${timeStr})`);
+        if (event.location) {
+          console.log(`      📍 ${event.location}`);
+        }
+      });
+    }
 
-    // 4. Run custom Anthropic prompt (independent)
-    // Customize your prompt here:
-    const prompt = `Based on the following calendar events, decide what action to take and return ONLY a JSON object.
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 3: Pick an action using calendar event metadata
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n');
+    const suggestedAction = await pickActionFromEvents(todayEvents);
 
-Available actions:
-- buy_boba: Purchase boba tea (can include location, drink, time, eventId)
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 4: Print events and suggest user to input y/n to the action
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n💭 Step 4: Presenting action suggestion to user...');
 
-Calendar Events:
-${JSON.stringify(events, null, 2)}
+    if (!suggestedAction) {
+      console.log('   ℹ️  No action suggested - continuing to Locus MCP');
+    } else {
+      console.log('\n   Suggested Action:');
+      console.log('   ┌' + '─'.repeat(68) + '┐');
+      console.log(`   │ Action: ${suggestedAction.action.toUpperCase().padEnd(59)}│`);
+      console.log(`   │ Event:  ${(suggestedAction.eventSummary || 'N/A').padEnd(59)}│`);
+      console.log(`   │ Location: ${(suggestedAction.location || 'N/A').padEnd(57)}│`);
+      console.log(`   │ Time: ${(suggestedAction.time || 'N/A').padEnd(61)}│`);
+      console.log('   └' + '─'.repeat(68) + '┘');
 
-Return format (JSON only, no extra text):
-{
-  "action": "buy_boba",
-  "location": "store name",
-  "drink": "drink type",
-  "time": "when to buy",
-  "eventId": "related event id if applicable"
-}`;
+      console.log('\n');
+      const userConfirmed = await promptUserConfirmation('   Do you want to proceed with this action?');
 
-    // Notes (vicky): use the following metadata to tell david what to do
-    console.log('─'.repeat(50));
-
-    let customResult = null;
-
-    for await (const message of query({
-      prompt,
-      options: {
-        apiKey: process.env.ANTHROPIC_API_KEY
-      }
-    })) {
-      if (message.type === 'result' && message.subtype === 'success') {
-        customResult = message.result;
+      if (userConfirmed) {
+        console.log('   ✓ User confirmed - executing action...\n');
+        const actionResult = await executeAction(suggestedAction, todayEvents);
+        if (actionResult) {
+          console.log('   ✓ Action executed successfully');
+        }
+      } else {
+        console.log('   ✗ User declined - skipping action');
       }
     }
 
-    console.log('Response:', JSON.stringify(customResult, null, 2));
-    console.log('─'.repeat(50));
-    console.log('\n✓ Custom prompt completed!\n');
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 5: Get price for purchase
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n💰 Step 5: Getting price for purchase...');
 
-    // Execute the action returned by Claude
-    if (customResult) {
-      const actionResult = await executeAction(customResult, events);
-      if (actionResult) {
-        console.log('✓ Action executed:', JSON.stringify(actionResult, null, 2));
+    let purchasePrice = getPrice();
+
+    if (purchasePrice === -1) {
+      console.log('   ⚠️  getPrice failed - unable to retrieve price');
+      console.log('   📝 Defaulting to user input for price');
+
+      const userWantsToSend = await promptUserConfirmation('   Would you like to send $10 instead?');
+
+      if (userWantsToSend) {
+        purchasePrice = 10;
+        console.log('   ✓ User confirmed - using $10 for purchase');
+      } else {
+        console.log('   ✗ User declined - skipping purchase');
+        purchasePrice = 0; // Set to 0 to skip the transfer later
       }
+    } else {
+      console.log(`   ✓ Price retrieved successfully: $${purchasePrice}`);
     }
 
-    // 5. Configure MCP connection to Locus
-    console.log('Configuring Locus MCP connection...');
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 6: Connect to Locus MCP to transfer funds to buying agent
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n🔌 Step 6: Connecting to Locus MCP to transfer funds to buying agent...');
+
     const mcpServers = {
       'locus': {
         type: 'http',
@@ -249,45 +412,101 @@ Return format (JSON only, no extra text):
       }
     };
 
-    console.log('✓ MCP configured\n');
+    console.log('   ✓ MCP configuration created');
 
-    // 6. Run a query that uses MCP tools
-    console.log('Running sample query...\n');
-    console.log('─'.repeat(50));
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 7: Check wallet balance
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n💰 Step 7: Checking wallet balance...');
+    console.log('   🔄 Querying Locus for wallet balance...\n');
+    console.log('   ' + '─'.repeat(66));
 
-    let mcpStatus = null;
-    let finalResult = null;
+    let walletBalance = null;
+    let balanceResult = null;
 
     for await (const message of query({
-      prompt: 'What tools are available from Locus? Please list them.',
+      prompt: 'Can you check my wallet balance using the available Locus tools?',
       options
     })) {
       if (message.type === 'system' && message.subtype === 'init') {
         // Check MCP connection status
         const mcpServersInfo = message.mcp_servers;
-        mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
+        const mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
         if (mcpStatus?.status === 'connected') {
-          console.log(`✓ Connected to Locus MCP server\n`);
+          console.log('   ✓ Successfully connected to Locus MCP server');
         } else {
-          console.warn(`⚠️  MCP connection issue\n`);
+          console.warn('   ⚠️  MCP connection issue - check configuration');
         }
       } else if (message.type === 'result' && message.subtype === 'success') {
-        finalResult = message.result;
+        balanceResult = message.result;
       }
     }
 
-    console.log('Response:', finalResult);
-    console.log('─'.repeat(50));
-    console.log('\n✓ Query completed successfully!');
+    console.log('\n   Wallet Balance Information:');
+    console.log('   ' + balanceResult);
+    console.log('   ' + '─'.repeat(66));
+    console.log('   ✓ Balance check completed');
 
-    console.log('\n🚀 Your Locus application is working!');
-    console.log('\nNext steps:');
-    console.log('  • Modify the prompt in index.js to use Locus tools');
-    console.log('  • Try asking Claude to use specific Locus tools');
-    console.log('  • Explore MCP resources and capabilities\n');
+    // Check if there are enough funds
+    if (purchasePrice > 0) {
+      console.log(`\n   📊 Purchase requires: $${purchasePrice}`);
+      console.log('   💡 Please verify you have sufficient funds above');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STEP 8: Transfer funds to buying agent
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n💸 Step 8: Transferring funds to buying agent...');
+
+    if (purchasePrice > 0) {
+      // Prompt user for fund transfer confirmation
+      console.log(`\n   The buying agent needs funds to complete the purchase.`);
+      const transferConfirmed = await promptUserConfirmation(`   Do you want to transfer $${purchasePrice} to the buying-agent wallet?`);
+
+      if (transferConfirmed) {
+        console.log('\n   ✓ User confirmed - initiating fund transfer...');
+        console.log('   🔄 Connecting to Locus MCP...\n');
+        console.log('   ' + '─'.repeat(66));
+
+        let mcpStatus = null;
+        let transferResult = null;
+
+        for await (const message of query({
+          prompt: `Can you send ${purchasePrice} dollars to coinbase address 0x5937b036c69773ea4a4C0D3580453A1a0b7EE51C using mcp__locus__send_to_address.`,
+          options
+        })) {
+          if (message.type === 'system' && message.subtype === 'init') {
+            // Check MCP connection status
+            const mcpServersInfo = message.mcp_servers;
+            mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
+            if (mcpStatus?.status === 'connected') {
+              console.log('   ✓ Successfully connected to Locus MCP server');
+            } else {
+              console.warn('   ⚠️  MCP connection issue - check configuration');
+            }
+          } else if (message.type === 'result' && message.subtype === 'success') {
+            transferResult = message.result;
+          }
+        }
+
+        console.log('\n   Response from Locus:');
+        console.log('   ' + transferResult);
+        console.log('   ' + '─'.repeat(66));
+        console.log('   ✓ Fund transfer completed successfully');
+      } else {
+        console.log('   ✗ User declined - skipping fund transfer');
+        console.log('   ⚠️  Buying agent may not have sufficient funds to complete purchase');
+      }
+    } else {
+      console.log('   ℹ️  No purchase price set - skipping fund transfer');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('\n' + '═'.repeat(70));
+    console.log('✅ All steps completed successfully!');
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('\n❌ Error:', error.message);
     console.error('\nPlease check:');
     console.error('  • Your .env file contains valid credentials');
     console.error('  • Your network connection is active');
