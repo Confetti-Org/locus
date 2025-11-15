@@ -129,20 +129,20 @@ async function getInstacartPrice(item) {
             .setTimeout(timeout)
             .click();
     }
-    await delay(8000);
-
+    await delay(5000);
 
     //Click on "Add Count" button {X} times
     for (let i = 0; i < 3; i++) {
         {
             const targetPage = page;
-            const addCountButtonXpath = '/html/body/div[5]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+            const addCountButtonXpath = '/html/body/div[7]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
             await puppeteer.Locator.race([
                 targetPage.locator(`::-p-xpath(${addCountButtonXpath})`)
             ])
                 .setTimeout(timeout)
                 .click();
         }
+        await delay(1000);
     }   
     await delay(6000);
     // Click on CHEKOUT BUTTON

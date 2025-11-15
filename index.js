@@ -9,6 +9,8 @@ import {
   formatEvents
 } from './calendar.js';
 import { initializeEmailIntegration } from './buy_client.js';
+import pkg from './buying_instacart.js';
+const { getInstacartPrice } = pkg;
 
 /**
  * Handle Google Calendar authorization flow
@@ -173,14 +175,8 @@ function promptUserConfirmation(question) {
  * Get price for the purchase
  * @returns {number} - Price in dollars, or -1 if unavailable
  */
-function getPrice() {
-  // TODO: Implement actual price fetching logic
-  // This could involve:
-  // - Calling an external API
-  // - Querying a database
-  // - Calculating based on event details
-  // - Getting real-time pricing
-  return -1;
+async function getPrice() {
+  return await getInstacartPrice('boba');
 }
 
 /**
