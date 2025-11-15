@@ -8,6 +8,13 @@ import {
   getNextMonthEvents,
   formatEvents
 } from './calendar.js';
+import {
+  hasValidEmailCredentials,
+  getEmailAuthUrl,
+  authorizeEmailWithCode,
+  getRecentEmails,
+  formatEmails
+} from './email.js';
 
 /**
  * Handle Google Calendar authorization flow
@@ -42,6 +49,38 @@ async function handleCalendarAuth() {
 }
 
 /**
+ * Handle Gmail authorization flow
+ */
+async function handleEmailAuth() {
+  console.log('\n📧 Gmail Authorization Required\n');
+  console.log('To authorize this app to access your Gmail:');
+  console.log('1. Visit the following URL:');
+  console.log('\n' + getEmailAuthUrl() + '\n');
+  console.log('2. Authorize the application');
+  console.log('3. Copy the authorization code from the URL');
+  console.log('4. Paste it below\n');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve, reject) => {
+    rl.question('Enter authorization code: ', async (code) => {
+      rl.close();
+      try {
+        await authorizeEmailWithCode(code);
+        console.log('\n✓ Email authorization successful!\n');
+        resolve();
+      } catch (error) {
+        console.error('\n❌ Email authorization failed:', error.message);
+        reject(error);
+      }
+    });
+  });
+}
+
+/**
  * Display calendar events for next month
  */
 async function showNextMonthEvents() {
@@ -60,6 +99,23 @@ async function showNextMonthEvents() {
 }
 
 /**
+ * Display recent emails
+ */
+async function showRecentEmails() {
+  console.log('\n📧 Fetching recent emails...\n');
+
+  try {
+    const emails = await getRecentEmails(10);
+    const formattedEmails = formatEmails(emails);
+    console.log(formattedEmails);
+    return emails;
+  } catch (error) {
+    console.error('❌ Error fetching emails:', error.message);
+    throw error;
+  }
+}
+
+/**
  * Execute action to buy_boba
  * @param {Object} params - Parameters for the boba purchase action
  * @param {string} params.location - Location/store for boba purchase
@@ -70,7 +126,7 @@ async function showNextMonthEvents() {
 async function executeBuyBobaAction(params = {}) {
   console.log('\n🧋 Executing Buy Boba Action...\n');
   console.log('─'.repeat(50));
-  
+
   // Log the action parameters
   if (params.location) {
     console.log(`📍 Location: ${params.location}`);
@@ -84,17 +140,17 @@ async function executeBuyBobaAction(params = {}) {
   if (params.event) {
     console.log(`📅 Related Event: ${params.event.summary || 'N/A'}`);
   }
-  
+
   console.log('\n💡 Action Status: Ready to execute');
   console.log('─'.repeat(50));
-  
+
   // TODO: Implement actual boba purchase logic here
   // This could involve:
   // - Making API calls to Locus for payment
   // - Ordering through a delivery service
   // - Setting reminders
   // - Adding to a shopping list
-  
+
   return {
     status: 'success',
     action: 'buy_boba',
@@ -129,7 +185,7 @@ async function executeAction(actionData, events = []) {
 
     // Route to appropriate action handler
     const actionName = action.action?.toLowerCase().replace(/\s+/g, '_');
-    
+
     switch (actionName) {
       case 'buy_boba':
         return await executeBuyBobaAction({
@@ -138,7 +194,7 @@ async function executeAction(actionData, events = []) {
           event: action.eventId ? events.find(e => e.id === action.eventId) : events[0],
           ...action.params
         });
-      
+
       // Add more actions here as needed
       default:
         console.log(`⚠️  Unknown action: ${actionName}`);
@@ -160,10 +216,19 @@ async function main() {
       await handleCalendarAuth();
     }
 
-    // 2. Display next month's calendar events
+    // 2. Check and handle Gmail authorization
+    const hasEmailCredentials = await hasValidEmailCredentials();
+    if (!hasEmailCredentials) {
+      await handleEmailAuth();
+    }
+
+    // 3. Display next month's calendar events
     const events = await showNextMonthEvents();
 
-    // 3. Run custom Anthropic prompt (independent)
+    // 4. Display recent emails
+    const emails = await showRecentEmails();
+
+    // 5. Run custom Anthropic prompt (independent)
     // Customize your prompt here:
     const prompt = `Based on the following calendar events, decide what action to take and return ONLY a JSON object.
 
@@ -210,7 +275,7 @@ Return format (JSON only, no extra text):
       }
     }
 
-    // 4. Configure MCP connection to Locus
+    // 6. Configure MCP connection to Locus
     console.log('Configuring Locus MCP connection...');
     const mcpServers = {
       'locus': {
@@ -247,7 +312,7 @@ Return format (JSON only, no extra text):
 
     console.log('✓ MCP configured\n');
 
-    // 4. Run a query that uses MCP tools
+    // 7. Run a query that uses MCP tools
     console.log('Running sample query...\n');
     console.log('─'.repeat(50));
 
