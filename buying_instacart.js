@@ -13,7 +13,7 @@ function delay(time) {
     getInstacartPrice('boba');
 })();
 
-function getInstacartPrice(item) 
+async function getInstacartPrice(item) {
     // This LAUNCHES a new, sandboxed browser
     // A "persistent sandbox"
     const browser = await puppeteer.launch({
@@ -179,3 +179,4 @@ function getInstacartPrice(item)
         return number, targetPage.url();
         
     }
+}
