@@ -9,12 +9,11 @@ function delay(time) {
     });
 }
 
-function test(number) {
-    console.log('Test function called with number:', number);
-    // Add your custom logic here
-}
-
 (async () => {
+    getInstacartPrice('boba');
+})();
+
+function getInstacartPrice(item) 
     // This LAUNCHES a new, sandboxed browser
     // A "persistent sandbox"
     const browser = await puppeteer.launch({
@@ -130,7 +129,7 @@ function test(number) {
             .setTimeout(timeout)
             .click();
     }
-    await delay(7000);
+    await delay(8000);
 
 
     //Click on "Add Count" button {X} times
@@ -180,7 +179,3 @@ function test(number) {
         return number, targetPage.url();
         
     }
-
-    // IF TOO MUCH 
-
-})();
