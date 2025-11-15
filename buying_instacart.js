@@ -119,7 +119,7 @@ function test(number) {
             .setTimeout(timeout)
             .click();
     }
-    await delay(4000);
+    await delay(7000);
     // Click on "View Cart" button (handles varying item count)
     {
         const targetPage = page;
@@ -130,7 +130,7 @@ function test(number) {
             .setTimeout(timeout)
             .click();
     }
-    await delay(4000);
+    await delay(7000);
 
 
     //Click on "Add Count" button {X} times
@@ -145,7 +145,7 @@ function test(number) {
                 .click();
         }
     }   
-    await delay(4000);
+    await delay(6000);
     // Click on CHEKOUT BUTTON
     {
         const targetPage = page;
