@@ -135,7 +135,7 @@ async function getInstacartPrice(item) {
     for (let i = 0; i < 3; i++) {
         {
             const targetPage = page;
-            const addCountButtonXpath = '/html/body/div[7]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+            const addCountButtonXpath = '/html/body/div[5]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
             await puppeteer.Locator.race([
                 targetPage.locator(`::-p-xpath(${addCountButtonXpath})`)
             ])
