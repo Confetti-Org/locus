@@ -337,21 +337,9 @@ async function main() {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 5: [To be added later]
+    // STEP 5: Connect to Locus MCP to transfer funds to buying agent
     // ═══════════════════════════════════════════════════════════════════
-    console.log('\n📝 Step 5: [Placeholder for future functionality]');
-    console.log('   ℹ️  This step will be implemented later');
-    // TODO: Add additional logic here as needed
-    // This could include:
-    // - Additional event processing
-    // - Email integration
-    // - Notification sending
-    // - Custom business logic
-
-    // ═══════════════════════════════════════════════════════════════════
-    // STEP 6: Connect to Locus MCP
-    // ═══════════════════════════════════════════════════════════════════
-    console.log('\n🔌 Step 6: Connecting to Locus MCP...');
+    console.log('\n🔌 Step 5: Connecting to Locus MCP to transfer funds to buying agent...');
 
     const mcpServers = {
       'locus': {
@@ -389,47 +377,52 @@ async function main() {
     console.log('   ✓ MCP configuration created');
 
     // ═══════════════════════════════════════════════════════════════════
-    // STEP 7: Remaining LOCUS logic
+    // STEP 6: Transfer funds to buying agent
     // ═══════════════════════════════════════════════════════════════════
-    console.log('\n🚀 Step 7: Executing Locus MCP query...');
-    console.log('   Querying available Locus tools...\n');
-    console.log('   ' + '─'.repeat(66));
+    console.log('\n💸 Step 6: Transferring funds to buying agent...');
 
-    let mcpStatus = null;
-    let finalResult = null;
+    // Prompt user for fund transfer confirmation
+    console.log('\n   The buying agent needs funds to complete the purchase.');
+    const transferConfirmed = await promptUserConfirmation('   Do you want to transfer $10 to the buying-agent wallet?');
 
-    for await (const message of query({
-      prompt: 'What tools are available from Locus? Please list them.',
-      options
-    })) {
-      if (message.type === 'system' && message.subtype === 'init') {
-        // Check MCP connection status
-        const mcpServersInfo = message.mcp_servers;
-        mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
-        if (mcpStatus?.status === 'connected') {
-          console.log('   ✓ Successfully connected to Locus MCP server');
-        } else {
-          console.warn('   ⚠️  MCP connection issue - check configuration');
+    if (transferConfirmed) {
+      console.log('\n   ✓ User confirmed - initiating fund transfer...');
+      console.log('   🔄 Connecting to Locus MCP...\n');
+      console.log('   ' + '─'.repeat(66));
+
+      let mcpStatus = null;
+      let transferResult = null;
+
+      for await (const message of query({
+        prompt: 'Can you send 1 dollars to coinbase address 0x5937b036c69773ea4a4C0D3580453A1a0b7EE51C using mcp__locus__send_to_address.',
+        options
+      })) {
+        if (message.type === 'system' && message.subtype === 'init') {
+          // Check MCP connection status
+          const mcpServersInfo = message.mcp_servers;
+          mcpStatus = mcpServersInfo?.find(s => s.name === 'locus');
+          if (mcpStatus?.status === 'connected') {
+            console.log('   ✓ Successfully connected to Locus MCP server');
+          } else {
+            console.warn('   ⚠️  MCP connection issue - check configuration');
+          }
+        } else if (message.type === 'result' && message.subtype === 'success') {
+          transferResult = message.result;
         }
-      } else if (message.type === 'result' && message.subtype === 'success') {
-        finalResult = message.result;
       }
-    }
 
-    console.log('\n   Response from Locus:');
-    console.log('   ' + finalResult);
-    console.log('   ' + '─'.repeat(66));
-    console.log('   ✓ Locus query completed successfully');
+      console.log('\n   Response from Locus:');
+      console.log('   ' + transferResult);
+      console.log('   ' + '─'.repeat(66));
+      console.log('   ✓ Fund transfer completed successfully');
+    } else {
+      console.log('   ✗ User declined - skipping fund transfer');
+      console.log('   ⚠️  Buying agent may not have sufficient funds to complete purchase');
+    }
 
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n' + '═'.repeat(70));
     console.log('✅ All steps completed successfully!');
-    console.log('\n🚀 Your Locus application is working!');
-    console.log('\nNext steps:');
-    console.log('  • Modify the prompts to use specific Locus tools');
-    console.log('  • Add more action types based on calendar events');
-    console.log('  • Implement Step 5 with custom logic');
-    console.log('  • Explore MCP resources and capabilities\n');
 
   } catch (error) {
     console.error('\n❌ Error:', error.message);
