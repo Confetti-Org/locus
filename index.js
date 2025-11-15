@@ -59,6 +59,97 @@ async function showNextMonthEvents() {
   }
 }
 
+/**
+ * Execute action to buy_boba
+ * @param {Object} params - Parameters for the boba purchase action
+ * @param {string} params.location - Location/store for boba purchase
+ * @param {string} params.drink - Type of boba drink
+ * @param {string} params.time - Preferred time for purchase
+ * @param {Object} params.event - Related calendar event metadata
+ */
+async function executeBuyBobaAction(params = {}) {
+  console.log('\n🧋 Executing Buy Boba Action...\n');
+  console.log('─'.repeat(50));
+  
+  // Log the action parameters
+  if (params.location) {
+    console.log(`📍 Location: ${params.location}`);
+  }
+  if (params.drink) {
+    console.log(`🥤 Drink: ${params.drink}`);
+  }
+  if (params.time) {
+    console.log(`⏰ Time: ${params.time}`);
+  }
+  if (params.event) {
+    console.log(`📅 Related Event: ${params.event.summary || 'N/A'}`);
+  }
+  
+  console.log('\n💡 Action Status: Ready to execute');
+  console.log('─'.repeat(50));
+  
+  // TODO: Implement actual boba purchase logic here
+  // This could involve:
+  // - Making API calls to Locus for payment
+  // - Ordering through a delivery service
+  // - Setting reminders
+  // - Adding to a shopping list
+  
+  return {
+    status: 'success',
+    action: 'buy_boba',
+    params,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
+ * Action dispatcher - routes Claude's response to the appropriate action function
+ * @param {Object|string} actionData - Action data from Claude (could be object or string)
+ * @param {Array} events - Calendar events for context
+ */
+async function executeAction(actionData, events = []) {
+  try {
+    // Parse action if it's a string
+    let action = actionData;
+    if (typeof actionData === 'string') {
+      try {
+        action = JSON.parse(actionData);
+      } catch (e) {
+        console.log('⚠️  Could not parse action as JSON, treating as string');
+        // Check if string contains action keyword
+        if (actionData.toLowerCase().includes('buy_boba')) {
+          action = { action: 'buy_boba' };
+        } else {
+          console.log('❌ Unknown action format');
+          return null;
+        }
+      }
+    }
+
+    // Route to appropriate action handler
+    const actionName = action.action?.toLowerCase().replace(/\s+/g, '_');
+    
+    switch (actionName) {
+      case 'buy_boba':
+        return await executeBuyBobaAction({
+          location: action.location,
+          time: action.time,
+          event: action.eventId ? events.find(e => e.id === action.eventId) : events[0],
+          ...action.params
+        });
+      
+      // Add more actions here as needed
+      default:
+        console.log(`⚠️  Unknown action: ${actionName}`);
+        return null;
+    }
+  } catch (error) {
+    console.error('❌ Error executing action:', error.message);
+    return null;
+  }
+}
+
 async function main() {
   try {
     console.log('🎯 Starting Locus Claude SDK application...\n');
@@ -74,7 +165,22 @@ async function main() {
 
     // 3. Run custom Anthropic prompt (independent)
     // Customize your prompt here:
-    const prompt = `Return an action from the following list: [{action: 'buy boba'}]. Use the following event metadata: ${JSON.stringify(events, null, 2)}`;
+    const prompt = `Based on the following calendar events, decide what action to take and return ONLY a JSON object.
+
+Available actions:
+- buy_boba: Purchase boba tea (can include location, drink, time, eventId)
+
+Calendar Events:
+${JSON.stringify(events, null, 2)}
+
+Return format (JSON only, no extra text):
+{
+  "action": "buy_boba",
+  "location": "store name",
+  "drink": "drink type",
+  "time": "when to buy",
+  "eventId": "related event id if applicable"
+}`;
 
     // Notes (vicky): use the following metadata to tell david what to do
     console.log('─'.repeat(50));
@@ -95,6 +201,14 @@ async function main() {
     console.log('Response:', JSON.stringify(customResult, null, 2));
     console.log('─'.repeat(50));
     console.log('\n✓ Custom prompt completed!\n');
+
+    // Execute the action returned by Claude
+    if (customResult) {
+      const actionResult = await executeAction(customResult, events);
+      if (actionResult) {
+        console.log('✓ Action executed:', JSON.stringify(actionResult, null, 2));
+      }
+    }
 
     // 4. Configure MCP connection to Locus
     console.log('Configuring Locus MCP connection...');
