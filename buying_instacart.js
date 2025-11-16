@@ -1,6 +1,6 @@
 // Uses puppeteer as an example
-const puppeteer = require('puppeteer');
-//import puppeteer, {Locator} from 'puppeteer';
+//const puppeteer = require('puppeteer');
+import puppeteer, {Locator} from 'puppeteer';
 
 
 function delay(time) {
@@ -13,7 +13,7 @@ function delay(time) {
     getInstacartPrice('boba');
 })();
 
-async function getInstacartPrice(item) {
+export async function getInstacartPrice(item) {
     // This LAUNCHES a new, sandboxed browser
     // A "persistent sandbox"
     const browser = await puppeteer.launch({
@@ -42,7 +42,7 @@ async function getInstacartPrice(item) {
     await delay(4000);
     {
         const targetPage = page;
-        await puppeteer.Locator.race([
+        await Locator.race([
             targetPage.locator('::-p-aria(Search[role=\\"textbox\\"])'),
             targetPage.locator('#search-bar-input'),
             targetPage.locator('::-p-xpath(//*[@id=\\"search-bar-input\\"])'),
@@ -58,7 +58,7 @@ async function getInstacartPrice(item) {
     }
     {
         const targetPage = page;
-        await puppeteer.Locator.race([
+        await Locator.race([
             targetPage.locator('::-p-aria(Search[role=\\"textbox\\"])'),
             targetPage.locator('#search-bar-input'),
             targetPage.locator('::-p-xpath(//*[@id=\\"search-bar-input\\"])'),
@@ -84,7 +84,7 @@ async function getInstacartPrice(item) {
         const priceXpath = '/html/body/div[2]/div[1]/div[1]/div/div/div/ul/li[1]/div[1]/div/div/div/div/div[2]/ul/li[1]/h3/div/a/div[2]/div[1]/div[1]/div[1]';
 
         // Wait for element and get its text content
-        const element = await puppeteer.Locator.race([
+        const element = await Locator.race([
             targetPage.locator(`::-p-xpath(${priceXpath})`)
         ])
             .setTimeout(timeout)
@@ -112,7 +112,7 @@ async function getInstacartPrice(item) {
     {
         const targetPage = page;
         const xpath = '/html/body/div[2]/div[1]/div[1]/div/div/div/ul/li[1]/div[1]/div/div/div/div/div[2]/ul/li[1]/h3/div/div/div';
-        await puppeteer.Locator.race([
+        await Locator.race([
             targetPage.locator(`::-p-xpath(${xpath})`)
         ])
             .setTimeout(timeout)
@@ -123,7 +123,7 @@ async function getInstacartPrice(item) {
     {
         const targetPage = page;
         const xpath = '/html/body/div[2]/div[1]/header/div/div/button';
-        await puppeteer.Locator.race([
+        await Locator.race([
             targetPage.locator(`::-p-xpath(${xpath})`)
         ])
             .setTimeout(timeout)
@@ -135,21 +135,23 @@ async function getInstacartPrice(item) {
     for (let i = 0; i < 3; i++) {
         {
             const targetPage = page;
-            const addCountButtonXpath = '/html/body/div[5]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
-            await puppeteer.Locator.race([
-                targetPage.locator(`::-p-xpath(${addCountButtonXpath})`)
+            const addCountButtonXpath1 = '/html/body/div[5]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+            const addCountButtonXpath2 = '/html/body/div[7]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+            await Locator.race([
+                targetPage.locator(`::-p-xpath(${addCountButtonXpath1})`),
+                targetPage.locator(`::-p-xpath(${addCountButtonXpath2})`)
             ])
                 .setTimeout(timeout)
                 .click();
         }
-        await delay(1000);
+        await delay(2000);
     }   
     await delay(6000);
     // Click on CHEKOUT BUTTON
     {
         const targetPage = page;
         const submitCheckoutButton = '/html/body/div[5]/div[1]/div/div/footer/button';
-        await puppeteer.Locator.race([
+        await Locator.race([
             targetPage.locator(`::-p-xpath(${submitCheckoutButton})`)
         ])
             .setTimeout(timeout)
@@ -161,7 +163,7 @@ async function getInstacartPrice(item) {
         const priceXpath = '/html/body/div[2]/div[1]/div/div/div/div[2]/div/div[1]/div/div[2]/div[1]/div/ul/li[6]/div/div[2]/div/div[2]/span';
 
         // Get the element using XPath
-        const element = await puppeteer.Locator.race([
+        const element = await Locator.race([
             targetPage.locator(`::-p-xpath(${priceXpath})`)
         ])
             .setTimeout(timeout)
@@ -175,8 +177,8 @@ async function getInstacartPrice(item) {
 
         console.log('Extracted number:', number);
 
-        // Call the test function with the extracted number
-        return number, targetPage.url();
-        
+        // Return both the subtotal and the current page URL
+        return { subtotal: number, url: targetPage.url() };
+
     }
 }

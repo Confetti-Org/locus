@@ -21,6 +21,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "dotenv": "^16.4.5",
-    "googleapis": "^166.0.0"
+    "googleapis": "^166.0.0",
+    "puppeteer": "^24.30.0"
   }
 }
