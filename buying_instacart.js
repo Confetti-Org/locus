@@ -1,6 +1,5 @@
 // Uses puppeteer as an example
-const puppeteer = require('puppeteer');
-//import puppeteer, {Locator} from 'puppeteer';
+import puppeteer from 'puppeteer';
 
 
 function delay(time) {
@@ -9,9 +8,10 @@ function delay(time) {
     });
 }
 
-(async () => {
-    getInstacartPrice('boba');
-})();
+// Commented out auto-execution - function is now only called when imported and invoked
+// (async () => {
+//     getInstacartPrice('boba');
+// })();
 
 async function getInstacartPrice(item) {
     // This LAUNCHES a new, sandboxed browser
@@ -175,8 +175,10 @@ async function getInstacartPrice(item) {
 
         console.log('Extracted number:', number);
 
-        // Call the test function with the extracted number
-        return number, targetPage.url();
-        
+        // Return the price
+        return number;
+
     }
 }
+
+export { getInstacartPrice };

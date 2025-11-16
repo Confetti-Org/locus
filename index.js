@@ -9,8 +9,7 @@ import {
   formatEvents
 } from './calendar.js';
 import { initializeEmailIntegration } from './buy_client.js';
-import pkg from './buying_instacart.js';
-const { getInstacartPrice } = pkg;
+import { getInstacartPrice } from './buying_instacart.js';
 
 /**
  * Handle Google Calendar authorization flow
@@ -173,10 +172,27 @@ function promptUserConfirmation(question) {
 
 /**
  * Get price for the purchase
- * @returns {number} - Price in dollars, or -1 if unavailable
+ * @param {Object} action - The suggested action from calendar events
+ * @returns {Promise<number>} - Price in dollars, or -1 if unavailable
  */
-async function getPrice() {
-  return await getInstacartPrice('boba');
+async function getPrice(action) {
+  // Check if action is buy_boba
+  if (action && action.action === 'buy_boba') {
+    console.log('   🛒 Boba purchase detected');
+    const shouldGetPrice = await promptUserConfirmation('   Do you want to get the price from Instacart?');
+
+    if (shouldGetPrice) {
+      console.log('   ⏳ Fetching price from Instacart...');
+      const price = await getInstacartPrice('boba');
+      return price;
+    } else {
+      console.log('   ✗ User declined Instacart price fetch');
+      return -1;
+    }
+  }
+
+  // No buy_boba action, return -1
+  return -1;
 }
 
 /**
@@ -351,7 +367,7 @@ async function main() {
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n💰 Step 5: Getting price for purchase...');
 
-    let purchasePrice = getPrice();
+    let purchasePrice = await getPrice(suggestedAction);
 
     if (purchasePrice === -1) {
       console.log('   ⚠️  getPrice failed - unable to retrieve price');
