@@ -5,7 +5,9 @@ import {
   getEmailAuthUrl,
   authorizeEmailWithCode,
   getRecentEmails,
-  formatEmails
+  formatEmails,
+  getMostRecentEmailContent,
+  formatEmailContent
 } from './email.js';
 
 /**
@@ -58,6 +60,29 @@ export async function showRecentEmails() {
 }
 
 /**
+ * Display the most recent email with full content
+ */
+export async function showMostRecentEmailContent() {
+  console.log('\n📧 Fetching most recent email content...\n');
+
+  try {
+    const email = await getMostRecentEmailContent();
+
+    if (!email) {
+      console.log('No emails found in inbox.');
+      return null;
+    }
+
+    const formattedEmail = formatEmailContent(email);
+    console.log(formattedEmail);
+    return email;
+  } catch (error) {
+    console.error('❌ Error fetching email content:', error.message);
+    throw error;
+  }
+}
+
+/**
  * Initialize email integration - handles auth and fetches emails
  */
 export async function initializeEmailIntegration() {
@@ -80,11 +105,24 @@ async function main() {
     console.log('🤖 Buy Client - Email Integration\n');
     console.log('─'.repeat(50));
 
-    // Initialize email integration
-    const emails = await initializeEmailIntegration();
+    // Check and handle Gmail authorization
+    const hasEmailCredentials = await hasValidEmailCredentials();
+    if (!hasEmailCredentials) {
+      await handleEmailAuth();
+    }
+
+    // Display recent emails list
+    await showRecentEmails();
 
     console.log('\n─'.repeat(50));
-    console.log(`\n✓ Successfully fetched ${emails.length} emails!\n`);
+
+    // Display most recent email with full content
+    const mostRecentEmail = await showMostRecentEmailContent();
+
+    console.log('\n─'.repeat(50));
+    if (mostRecentEmail) {
+      console.log(`\n✓ Successfully fetched most recent email!\n`);
+    }
 
   } catch (error) {
     console.error('❌ Error:', error.message);
@@ -96,6 +134,15 @@ async function main() {
 }
 
 // Run main function if script is executed directly
+// Debug: Check why main() is not being called
+console.log('DEBUG: import.meta.url:', import.meta.url);
+console.log('DEBUG: process.argv[1]:', process.argv[1]);
+console.log('DEBUG: Constructed path:', `file://${process.argv[1]}`);
+console.log('DEBUG: Match?:', import.meta.url === `file://${process.argv[1]}`);
+
 if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+} else {
+  console.log('⚠️  Script was imported, not executed directly. Calling main() anyway for testing...');
   main();
 }

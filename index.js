@@ -172,7 +172,8 @@ function promptUserConfirmation(question) {
 
 /**
  * Get price for the purchase
- * @returns {number} - Price in dollars, or -1 if unavailable
+ * @param {Object} action - The suggested action from calendar events
+ * @returns {Promise<number>} - Price in dollars, or -1 if unavailable
  */
 async function getPrice(action) {
   // Check if action is buy_boba
@@ -365,7 +366,7 @@ async function main() {
     // STEP 5: Get price for purchase
     // ═══════════════════════════════════════════════════════════════════
     console.log('\n💰 Step 5: Getting price for purchase...');
-
+    
     let purchasePrice, checkoutUrl = await getPrice(suggestedAction);
     console.log('   ✓ Price retrieved successfully: $${purchasePrice}');
     console.log('   ✓ URL retrieved successfully: ${url}');

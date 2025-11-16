@@ -9,9 +9,10 @@ function delay(time) {
     });
 }
 
-(async () => {
-    getInstacartPrice('boba');
-})();
+// Commented out auto-execution - function is now only called when imported and invoked
+// (async () => {
+//     getInstacartPrice('boba');
+// })();
 
 export async function getInstacartPrice(item) {
     // This LAUNCHES a new, sandboxed browser
@@ -182,3 +183,5 @@ export async function getInstacartPrice(item) {
 
     }
 }
+
+export { getInstacartPrice };
