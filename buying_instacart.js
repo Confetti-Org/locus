@@ -2,7 +2,7 @@
 //const puppeteer = require('puppeteer');
 import puppeteer, {Locator} from 'puppeteer';
 
-
+//
 function delay(time) {
     return new Promise(function(resolve) {
         setTimeout(resolve, time)
@@ -136,11 +136,25 @@ export async function getInstacartPrice(item) {
     for (let i = 0; i < 3; i++) {
         {
             const targetPage = page;
+
+            // Strategy 1: Relative XPATH - searches anywhere in the document (most flexible)
+            const relativeXpath = '//span/button[2]';
+
+            // Strategy 2: Original absolute XPATHs as fallbacks
             const addCountButtonXpath1 = '/html/body/div[5]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
             const addCountButtonXpath2 = '/html/body/div[7]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+
+            // Strategy 3: Try additional div indexes as fallbacks
+            const addCountButtonXpath3 = '/html/body/div[6]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+            const addCountButtonXpath4 = '/html/body/div[8]/div[1]/div/div/div/div[3]/div/div/div/div/div[2]/div/div[2]/div/div/div/div/span/button[2]';
+
+            // Race all strategies - first one found wins
             await Locator.race([
+                targetPage.locator(`::-p-xpath(${relativeXpath})`),
                 targetPage.locator(`::-p-xpath(${addCountButtonXpath1})`),
-                targetPage.locator(`::-p-xpath(${addCountButtonXpath2})`)
+                targetPage.locator(`::-p-xpath(${addCountButtonXpath2})`),
+                targetPage.locator(`::-p-xpath(${addCountButtonXpath3})`),
+                targetPage.locator(`::-p-xpath(${addCountButtonXpath4})`)
             ])
                 .setTimeout(timeout)
                 .click();
@@ -148,12 +162,26 @@ export async function getInstacartPrice(item) {
         await delay(2000);
     }   
     await delay(6000);
-    // Click on CHEKOUT BUTTON
+    // Click on CHECKOUT BUTTON
     {
         const targetPage = page;
+
+        // Strategy 1: Relative XPATH - finds button in any footer (most flexible)
+        const relativeXpath = '//footer/button';
+
+        // Strategy 2: Original absolute XPATHs as fallbacks
         const submitCheckoutButton = '/html/body/div[5]/div[1]/div/div/footer/button';
+        const submitCheckoutButton2 = '/html/body/div[7]/div[1]/div/div/footer/button';
+        const submitCheckoutButton3 = '/html/body/div[6]/div[1]/div/div/footer/button';
+        const submitCheckoutButton4 = '/html/body/div[8]/div[1]/div/div/footer/button';
+
+        // Race all strategies - first one found wins
         await Locator.race([
-            targetPage.locator(`::-p-xpath(${submitCheckoutButton})`)
+            targetPage.locator(`::-p-xpath(${relativeXpath})`),
+            targetPage.locator(`::-p-xpath(${submitCheckoutButton})`),
+            targetPage.locator(`::-p-xpath(${submitCheckoutButton2})`),
+            targetPage.locator(`::-p-xpath(${submitCheckoutButton3})`),
+            targetPage.locator(`::-p-xpath(${submitCheckoutButton4})`)
         ])
             .setTimeout(timeout)
             .click();
@@ -184,4 +212,3 @@ export async function getInstacartPrice(item) {
     }
 }
 
-export { getInstacartPrice };
